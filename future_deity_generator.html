@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>創造你的專屬守護神</title>
+    <!-- 引入 Tailwind CSS 確保響應式設計 --><script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // 設定自訂主題顏色
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'deity-bg': '#F0E6D2', // 背景色 (淺米黃/淺褐)
+                        'deity-text': '#9B7E50', // 文字色 (深褐/金)
+                        'deity-accent': '#DDB466', // 框線/按鈕主色 (金黃/黃褐)
+                        'deity-dark': '#7A643F', // Hover/深色陰影
+                        'deity-light': '#F7F2E6', // Canvas 漸變亮色
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 使用 Noto Serif TC */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght400;700&display=swap');
+        body {
+            font-family: 'Noto Serif TC', serif; 
+            background-color: #F0E6D2; /* 背景顏色: #F0E6D2 */
+        }
+        /* 確保 Canvas 能夠正確繪圖 */
+        #deity-canvas {
+            border: 2px solid #DDB466; /* 框線顏色: #DDB466 */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* 選擇按鈕風格 */
+        .option-button {
+            transition: all 0.2s;
+        }
+        .option-button.selected {
+            border-width: 3px;
+            border-color: #DDB466; /* 選中框線: #DDB466 */
+            box-shadow: 0 0 10px rgba(155, 126, 80, 0.5); /* 陰影使用文字色 */
+            transform: scale(1.05);
+        }
+        /* 載入畫面文字顏色 */
+        #loading-overlay div {
+            color: #9B7E50;
+        }
+        /* 讓文字區塊能隨著 LLM 輸出自動調整高度 */
+        #wish-input {
+            resize: vertical;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-4xl font-bold text-center text-deity-text mb-6">🔮 創造你的專屬守護神</h1>
+        <p class="text-center text-gray-600 mb-8">自由搭配元素、選擇屬性，創造您的專屬「守護神」並許下願望！</p>
+
+        <div id="loading-overlay" class="fixed inset-0 bg-deity-bg/80 flex items-center justify-center z-50 hidden">
+            <div class="text-xl font-semibold">載入元素中，請稍候...</div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- 左側：卡片預覽區 --><div class="order-1 lg:order-2 bg-white p-6 rounded-xl shadow-lg flex flex-col items-center sticky top-8 h-fit">
+                <h2 class="text-2xl font-semibold mb-4 text-deity-text">您的守護神預覽</h2>
+                <!-- Canvas 繪圖區域，設定為 4:3 比例 --><canvas id="deity-canvas" width="300" height="400" class="w-full max-w-sm rounded-lg mb-4"></canvas>
+                
+                <div id="event-card" class="bg-deity-light border-l-4 border-deity-accent p-4 rounded-lg w-full max-w-sm hidden">
+                    <p class="text-deity-dark font-bold mb-1">✨ 隨機祝福卡</p>
+                    <p id="event-text" class="text-deity-dark text-sm"></p>
+                </div>
+
+                <button id="download-btn" class="mt-6 w-full max-w-sm bg-deity-accent hover:bg-deity-dark text-white font-bold py-3 rounded-xl shadow-md transition duration-150 ease-in-out disabled:opacity-50" disabled>
+                    下載您的專屬守護神卡 (PNG)
+                </button>
+                <p id="nickname-display" class="mt-2 text-sm text-deity-text font-semibold"></p>
+            </div>
+
+            <!-- 右側：選擇區塊 --><div class="order-2 lg:order-1 space-y-8">
+                <!-- 步驟一：拼貼設計 --><div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 text-deity-text">步驟一：拼貼設計</h2>
+                    <div id="element-selection" class="space-y-4">
+                        <!-- 元素選擇區塊將由 JS 動態生成 --></div>
+                </div>
+
+                <!-- 步驟二：賦予力量 --><div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 text-deity-text">步驟二：賦予力量屬性</h2>
+                    <p class="text-sm text-gray-700 mb-3">祂的力量屬性是？</p>
+                    <div id="attribute-selection" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <!-- 屬性按鈕將由 JS 動態生成 --></div>
+                    
+                    <h3 class="text-lg font-medium mt-6 mb-3 text-gray-700">想加入一點隨機祝福嗎？</h3>
+                    <div id="blessing-toggle" class="flex flex-wrap gap-4">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="blessing" value="yes" checked class="form-radio text-deity-accent focus:ring-deity-accent">
+                            <span class="text-gray-700">想！（我想抽到神秘事件卡✨）</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="blessing" value="no" class="form-radio text-deity-accent focus:ring-deity-accent">
+                            <span class="text-gray-700">不用（我只想專心設計）</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 步驟三/四：祈願與顯靈 --><div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 text-deity-text">步驟三/四：祈願與顯靈</h2>
+                    
+                    <h3 class="text-lg font-medium mb-3 text-gray-700">Q7. 你希望神卡上顯示的名字／暱稱？</h3>
+                    <input type="text" id="nickname-input" maxlength="10" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-deity-accent focus:border-deity-accent" placeholder="例如：幸運星 (最多10字)">
+                    
+                    <h3 class="text-lg font-medium mt-6 mb-3 text-gray-700">你希望這位未來神保佑你實現什麼願望？</h3>
+                    <div class="flex flex-col space-y-2">
+                         <textarea id="wish-input" rows="3" maxlength="100" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-deity-accent focus:border-deity-accent" placeholder="你希望這位仙人保佑你實現什麼願望？ (最多100字)"></textarea>
+                         <div class="flex justify-between items-center">
+                            <button id="refine-wish-btn" class="flex items-center px-4 py-2 bg-deity-text text-white text-sm rounded-lg hover:bg-deity-dark transition disabled:opacity-50">
+                                <span id="refine-wish-text">✨ 許願詞昇華 (Gemini)</span>
+                            </button>
+                            <p class="text-right text-sm text-gray-500 mt-1"><span id="char-count">0</span> / 100 字</p>
+                        </div>
+                    </div>
+                    
+                    <h3 class="text-lg font-medium mt-6 mb-3 text-gray-700">Q8. 是否願意將你的卡片放上『守護神牆』展示？</h3>
+                    <div id="consent-toggle" class="flex flex-wrap gap-4">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="consent" value="yes" checked class="form-radio text-deity-accent focus:ring-deity-accent">
+                            <span class="text-gray-700">✅ 願意</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="consent" value="no" class="form-radio text-deity-accent focus:ring-deity-accent">
+                            <span class="text-gray-700">❌ 不願意</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 全域變數
+        const CANVAS_WIDTH = 600;
+        const CANVAS_HEIGHT = 800;
+        const FONT_FAMILY = 'Noto Serif TC'; 
+        const PADDING = 50;
+
+        const canvas = document.getElementById('deity-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 設定 Canvas 的實際繪圖尺寸 (用於高解析度輸出)
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+
+        // 設定 Canvas 在頁面上的顯示尺寸 (用於美觀預覽)
+        canvas.style.width = '100%';
+        canvas.style.height = (CANVAS_HEIGHT / CANVAS_WIDTH) * canvas.offsetWidth + 'px';
+
+        // --- 步驟一：拼貼設計元素 (已替換為 GitHub Raw 連結) ---
+        // 假設您的 GitHub 倉庫路徑為 https://raw.githubusercontent.com/df3717752-cmd/future-deity-generator/refs/heads/main/future-deity-project/
+        const BASE_URL = 'https://raw.githubusercontent.com/df3717752-cmd/future-deity-generator/refs/heads/main/future-deity-project/';
+
+        const elementData = {
+            gender: [
+                { id: 'goddess', name: '女神', imageUrl: `${BASE_URL}gender/gender_%E5%A5%B3%E7%A5%9E.png` },
+                { id: 'god', name: '男神', imageUrl: `${BASE_URL}gender/gender_%E7%94%B7%E7%A5%9E.png` },
+            ],
+            headwear: [
+                { id: 'beret', name: '貝雷帽', imageUrl: `${BASE_URL}headwear/headwear_%E8%B2%9D%E9%9B%B7%E5%B8%BD.png` },
+                { id: 'party', name: '派對帽', imageUrl: `${BASE_URL}headwear/headwear_%E6%B4%BE%E5%B0%8D%E5%B8%BD.png` },
+                { id: 'straw', name: '草帽', imageUrl: `${BASE_URL}headwear/headwear_%E8%8D%89%E5%B8%BD.png` },
+                { id: 'baseball', name: '棒球帽', imageUrl: `${BASE_URL}headwear/headwear_%E6%A3%92%E7%90%83%E5%B8%BD.png` },
+                { id: 'reggae', name: '雷鬼頭', imageUrl: `${BASE_URL}headwear/headwear_%E9%9B%B7%E9%AC%BC%E9%A0%AD.png` },
+                { id: 'reindeer', name: '馴鹿帽', imageUrl: `${BASE_URL}headwear/headwear_%E9%A6%B4%E9%B9%BF%E5%B8%BD.png` },
+                { id: 'fisherman', name: '漁夫帽', imageUrl: `${BASE_URL}headwear/headwear_%E6%BC%81%E5%A4%AB%E5%B8%BD.png` },
+                { id: 'phoenix', name: '鳳冠', imageUrl: `${BASE_URL}headwear/headwear_%E9%B3%B3%E5%86%A0.png` },
+                { id: 'tophat', name: '禮帽', imageUrl: `${BASE_URL}headwear/headwear_%E7%A6%AE%E5%B8%BD.png` },
+                { id: 'twin_tails', name: '雙馬尾', imageUrl: `${BASE_URL}headwear/headwear_%E9%9B%99%E9%A6%AC%E5%B0%BE.png` },
+            ],
+            outfit: [
+                { id: 'hoodie', name: '帽T', imageUrl: `${BASE_URL}outfit/outfit_%E5%B8%BDT.png` },
+                { id: 'suit', name: '西裝', imageUrl: `${BASE_URL}outfit/outfit_%E8%A5%BF%E8%A3%9D.png` },
+                { id: 'sweater', name: '毛衣', imageUrl: `${BASE_URL}outfit/outfit_%E6%AF%9B%E8%A1%A3.png` },
+                { id: 'techwear', name: '科技服', imageUrl: `${BASE_URL}outfit/outfit_%E7%A7%91%E6%8A%80%E6%9C%8D.png` },
+                { id: 'deity_robe', name: '神衣', imageUrl: `${BASE_URL}outfit/outfit_%E7%A5%9E%E8%A1%A3.png` },
+                { id: 'dress', name: '洋裝', imageUrl: `${BASE_URL}outfit/outfit_%E6%B4%8B%E8%A3%9D.png` },
+                { id: 'basketball', name: '籃球背心', imageUrl: `${BASE_URL}outfit/outfit_%E7%B1%83%E7%90%83%E8%83%8C%E5%BF%83.png` },
+                { id: 'denim', name: '牛仔', imageUrl: `${BASE_URL}outfit/outfit_%E7%89%9B%E4%BB%94.png` },
+                { id: 'leather', name: '皮衣', imageUrl: `${BASE_URL}outfit/outfit_%E7%9A%AE%E8%A1%A3.png` },
+                { id: 'police', name: '警服', imageUrl: `${BASE_URL}outfit/outfit_%E8%AD%A6%E6%9C%8D.png` },
+                { id: 'chef', name: '廚師服', imageUrl: `${BASE_URL}outfit/outfit_%E5%BB%9A%E5%B8%AB%E6%9C%8D.png` },
+            ],
+            background: [
+                { id: 'gold', name: '金光', imageUrl: `${BASE_URL}bg/bg_%E9%87%91%E5%85%89.png` },
+                { id: 'art', name: '藝術', imageUrl: `${BASE_URL}bg/bg_%E8%97%9D%E8%A1%93.png` },
+                { id: 'dawn', name: '曙光', imageUrl: `${BASE_URL}bg/bg_%E6%9B%99%E5%85%89.png` },
+                { id: 'dream', name: '夢幻', imageUrl: `${BASE_URL}bg/bg_%E5%A4%A2%E5%B9%BB.png` },
+                { id: 'night', name: '黑夜', imageUrl: `${BASE_URL}bg/bg_%20%E9%BB%91%E5%A4%9C.png` },
+                { id: 'cloud', name: '白雲', imageUrl: `${BASE_URL}bg/bg_%E7%99%BD%E9%9B%B2.png` },
+                { id: 'tech', name: '科技', imageUrl: `${BASE_URL}bg/bg_%E7%A7%91%E6%8A%80.png` },
+            ]
+        };
+
+        // --- 步驟二：角色屬性 (已更新) ---
+        const attributes = [
+            '運動神', '旅遊神', '遊戲神', '清潔神', '食神', '藝術神', '醫藥神', 
+            '大地神', '考試神', '派對神', '美妝神', '科技神', '睡神',
+        ];
+
+        // --- 隨機祝福 (已更新) ---
+        const blessingMessages = [
+            '祂悄悄派了一位迷你守護靈陪在你身邊，確保今天一切順利。',
+            '祂今天心情很好，決定給你額外的幸運值＋3。',
+            '祂剛替你在宇宙排隊表上劃下「優先」標記。',
+            '這位神明今晚會守在你的夢裡，替你擦去所有煩惱。',
+            '未來能量正在靠近，你會突然覺得心很安定。',
+            '祂幫你重新整理了情緒櫃子，把累的東西都放在最底層。',
+            '祂剛為你補滿能量槽，接下來的事你都能處理得很。',
+            '祂幫你掃掉肩上的壓力灰塵，你會更輕鬆。',
+            '祂祝你「順心＋3、好運＋2、睡飽＋5」。',
+            '你今天的守護機率提升了 87%，因為祂心情很好。',
+            '祂替你在命運前方點了一盞暖光。',
+            '你的守護神正在調配一種新魔法，預計三天後生效。',
+            '祂打開一扇小窗，把好事推向你這邊。',
+            '今日星際風向良好，神明批准你帶走額外的幸運粒子。',
+            '祂在你的靈魂外套上縫上了「不怕挫折」的結界符。',
+            '祂施放「路上不會絆倒」魔法，只限今天使用。',
+            '宇宙傳來訊息：你的名字剛被列入「值得被愛名單」。',
+            '祂幫你問了一下未來，未來說：「放心，我在準備了。」',
+            '祂藏了一顆小小的榮耀種子在你口袋，適時會發芽。',
+            '祂正在你的時間線偷偷加糖，甜的快到了。',
+            '祂覺得你太累，決定讓你今天遇到一件小確幸。',
+            '你的守護神建議你今晚喝一杯溫暖的飲品，它會生效。',
+            '今天你會聽到一句意外溫柔的話，那是祂安排的。',
+            '祂替你揉了一下命運的肩膀，壓力會減輕。',
+            '祂說你值得一段安靜，所以祂今天幫你把吵雜靜音了。',
+            '今天你會突然覺得「好像沒那麼糟」——那是祂。',
+            '祂幫你暫停了心裡的風雨 3 小時，好好呼吸。',
+            '有一點點幸福正在靠近，速度比你想像快。',
+            '祂替你把困難重新排列，現在最簡單的被放在前面了。',
+            '祂剛啟動你的「未來版本更新」，情緒穩定度＋20。',
+            '祂派出奈米小隊替你清理腦袋裡的雜訊。',
+            '一個新的可能性正在你的人生後台安裝。',
+            '祂替你打開「高機率成功」的選項。',
+            '你的守護神把你的人生防火牆加厚了。',
+            '祂偵測到你需要鼓勵，已傳送能量包到你心底。',
+            '宇宙雲端系統替你備份了所有努力，不會白費。',
+            '祂為你優化了「勇敢」程式碼，已成功運行。',
+            '祂正在計算一條屬於你的捷徑，請稍候。',
+            '祂更新了你的好運演算法，現在效率更高。',
+            '祂今天會賜你一碗讓人心情變好的熱湯。',
+            '食神已替你加量「勇氣配料」一匙。',
+            '祂正在煮一鍋會讓你幸福的咖哩，香味快到了。',
+            '祂替你做了一份「不沮喪便當」，讓你元氣＋50。',
+            '今天你會莫名吃到好吃的東西，那是祂安排的。',
+            '祂讓甜點精靈提前送達甜甜的事件給你。',
+            '你的神明覺得你值得一杯飲料，請自己挑。',
+            '祂幫你把壞心情丟進宇宙的垃圾桶了。',
+            '今天你不會踩到雷，因為祂先踩過了。',
+            '祂說你今天很可愛，不接受反駁。',
+            '祂覺得你比自己想像的更勇敢，正替你增加耐心值。',
+            '祂把你昨天的難過拿去換了今天的力量。',
+            '某個你期待的答案正在逐漸變得清晰。',
+            '祂為你點亮了一小段路，足夠你再往前走一步。',
+            '今後會越來越順利，祂正在安排理由。',
+            '祂在你的心上貼了一張便利貼：加油，你值得更好。',
+            '你正在悄悄變得更強，祂看見了。',
+            '某個願望已被上傳到宇宙，正在排程中。',
+            '祂說：「別擔心，我都在。」',
+            '祂今天讓你在巷弄遇上一份剛好需要的溫柔。',
+            '在台南的風裡，你會收到一個意想不到的小祝福。',
+            '如果你今天喝到特別好喝的飲料，那是祂的傑作。',
+            '祂把你的煩惱折成紙船，放進河裡慢慢漂走了。',
+            '祂派了一顆流星延後 5 分鐘落下，剛好讓你看到。',
+            '祂讓你的心今天穿上一件「抗煩躁」毛衣。',
+            '祂說：「你值得被宇宙好好對待。」',
+            '祂為你準備了最佳的出場安排，耐心等待。'
+        ];
+
+
+        // 初始狀態
+        const state = {
+            gender: elementData.gender[0].id,
+            headwear: elementData.headwear[0].id,
+            outfit: elementData.outfit[0].id,
+            background: elementData.background[0].id,
+            attribute: attributes[0],
+            wish: '',
+            nickname: '', // Q7
+            consent: 'yes', // Q8
+            blessingToggle: 'yes', // Q6
+            images: {}, 
+            allElementsLoaded: false,
+        };
+
+        // --- Firebase 相關配置 (用於未來實現社群牆) ---
+        // (保持不變)
+
+
+        // --- Gemini API 整合 ---
+        const API_MODEL = "gemini-2.5-flash-preview-09-2025";
+        const API_KEY = "";
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent?key=${API_KEY}`;
+        const REFINE_WISH_BTN = document.getElementById('refine-wish-btn');
+        const REFINE_WISH_TEXT = document.getElementById('refine-wish-text');
+        const WISH_INPUT = document.getElementById('wish-input');
+
+
+        /**
+         * 執行帶有指數退避的 fetch 請求
+         */
+        async function exponentialBackoffFetch(url, options, maxRetries = 5, delay = 1000) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status !== 429 && response.ok) {
+                        return response;
+                    } else if (response.status === 429 && i < maxRetries - 1) {
+                        // Too Many Requests, retry
+                        await new Promise(resolve => setTimeout(resolve, delay * (2 ** i) + Math.random() * 1000));
+                        continue;
+                    } else {
+                        throw new Error(`API request failed with status ${response.status}`);
+                    }
+                } catch (error) {
+                    if (i < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delay * (2 ** i) + Math.random() * 1000));
+                        continue;
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+        }
+
+        /**
+         * 呼叫 Gemini API 進行文本生成
+         */
+        async function callGeminiApi(userQuery, systemPrompt) {
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                config: {
+                    // 將輸出字數限制在 80 字以內，符合卡片版面需求
+                    maxOutputTokens: 80 
+                }
+            };
+
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+
+            try {
+                const response = await exponentialBackoffFetch(API_URL, options);
+                const result = await response.json();
+                
+                const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (!generatedText) {
+                     // 如果 API 返回無內容，拋出錯誤
+                    console.error("Gemini API returned no text:", result);
+                    return "神諭能量不足，請重新嘗試！";
+                }
+
+                // 清理輸出文本，移除不必要的引號或換行
+                return generatedText.trim().replace(/^['"\s]+|['"\s]+$/g, '');
+
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                return "宇宙連線中斷，請稍後再試。";
+            }
+        }
+
+        /**
+         * ✨ 許願詞昇華：使用 Gemini API 強化用戶的願望。
+         */
+        async function refineWish() {
+            const currentWish = state.wish.trim();
+            const selectedAttribute = state.attribute;
+
+            if (currentWish.length < 5) {
+                // 如果願望太短，給予提示
+                WISH_INPUT.placeholder = "請輸入至少 5 個字再進行昇華！";
+                WISH_INPUT.focus();
+                return;
+            }
+
+            // 設置按鈕為載入狀態
+            REFINE_WISH_BTN.disabled = true;
+            REFINE_WISH_TEXT.textContent = '神諭生成中...';
+
+            const systemPrompt = `你是一位掌管未來、神聖且充滿詩意的神諭師。你的任務是根據信徒簡短的願望，將其改寫成一段充滿力量感、優雅或史詩風格的「祈禱文」。這段祈禱文必須簡潔，長度不超過 30 個中文字，且必須與信徒選擇的「守護神」屬性（例如：${selectedAttribute}）相呼應。只輸出昇華後的祈禱文，不需要任何額外的標點符號或稱謂。`;
+
+            const userQuery = `這是信徒的願望，請昇華："${currentWish}"`;
+
+            const refinedWish = await callGeminiApi(userQuery, systemPrompt);
+
+            // 更新 UI 狀態
+            REFINE_WISH_BTN.disabled = false;
+            REFINE_WISH_TEXT.textContent = '✨ 許願詞昇華 (Gemini)';
+
+            // 將昇華後的願望更新到輸入框和狀態
+            state.wish = refinedWish.substring(0, 100); // 確保不超過最大長度
+            WISH_INPUT.value = state.wish;
+            WISH_INPUT.dispatchEvent(new Event('input')); // 觸發繪圖和字數計算
+
+            // 視覺回饋
+            WISH_INPUT.classList.add('border-deity-accent', 'border-4');
+            setTimeout(() => {
+                WISH_INPUT.classList.remove('border-deity-accent', 'border-4');
+            }, 1000);
+        }
+
+        // --- 核心繪圖函數 ---
+
+        /**
+         * 將文字自動換行並繪製在 Canvas 上。
+         * @param {boolean} stroke 是否繪製描邊
+         */
+        function drawWrappedText(text, x, y, maxWidth, lineHeight, stroke) {
+            const words = text.split('');
+            let line = '';
+            let lineY = y;
+
+            for (let n = 0; n < words.length; n++) {
+                const testLine = line + words[n];
+                const metrics = ctx.measureText(testLine);
+                const testWidth = metrics.width;
+
+                if (testWidth > maxWidth && n > 0) {
+                    if (stroke) ctx.strokeText(line, x, lineY); // 繪製描邊
+                    ctx.fillText(line, x, lineY);
+                    line = words[n];
+                    lineY += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+            if (stroke) ctx.strokeText(line, x, lineY); // 繪製最後一行的描邊
+            ctx.fillText(line, x, lineY);
+        }
+
+        /**
+         * 繪製帶圓角的矩形。
+         */
+        function drawRoundedRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.arcTo(x + width, y, x + width, y + radius, radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+            ctx.lineTo(x + radius, y + height);
+            ctx.arcTo(x, y + height, x, y + height - radius, radius);
+            ctx.lineTo(x, y + radius);
+            ctx.arcTo(x, y, x + radius, y, radius);
+            ctx.closePath();
+        }
+
+        /**
+         * 繪製完整的未來神卡片。
+         */
+        function drawDeityCard() {
+            if (!state.allElementsLoaded) return;
+            
+            // 1. 清除 Canvas 並繪製背景
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            
+            // 根據選擇的背景，繪製背景圖層 
+            const bgImg = state.images[state.background];
+            if (bgImg) {
+                // 確保背景圖填滿整個 Canvas
+                ctx.drawImage(bgImg, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            } else {
+                // 預設漸變背景 (如果背景圖沒載入)
+                const gradient = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                gradient.addColorStop(0, '#F7F2E6'); 
+                gradient.addColorStop(1, '#E6DDBB'); 
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            }
+
+            // 2. 繪製卡片邊框/裝飾
+            ctx.strokeStyle = '#DDB466'; // 框線顏色: #DDB466
+            ctx.lineWidth = 10;
+            ctx.strokeRect(PADDING / 2, PADDING / 2, CANVAS_WIDTH - PADDING, CANVAS_HEIGHT - PADDING);
+
+            // --- 3. 繪製元素圖像 (層次: 性別 -> 服裝 -> 頭飾) ---
+            
+            // 角色繪圖基準尺寸 (影響 headwear 和 outfit 的基準)
+            // 調整為 CANVAS_WIDTH 的 37.5% (原始 75% 的 50%)
+            const BASE_SIZE = CANVAS_WIDTH * 0.375; // 225
+            
+            // 角色基底垂直中心點 (Y 軸位置)
+            // 原始 Y_CENTER 是 320，向上移動 3 公分 (約 90 像素)
+            const Y_CENTER = 320 - 90; // 調整為 230
+            
+            // 垂直偏移距離 (headwear 往上，outfit 往下)
+            const VERTICAL_OFFSET = 100; 
+            
+            const GENDER_SCALE_FACTOR = 1.10; // gender 放大到 110%
+            const HEADWEAR_SCALE_FACTOR = 1.15; // headwear 放大到 115%
+            const OUTFIT_SCALE_FACTOR = 3.00; // outfit 保持 300% 放大
+            
+            // 【新變數】 outfit 向下額外移動總量
+            const OUTFIT_MOVE_DOWN_PX = 329.1 - 0.6; // 328.5px
+            // 【新變數】 headwear 向下移動 1 公分 (約 30 像素)
+            const HEADWEAR_MOVE_DOWN_PX = 30; 
+            
+            // 根據層次順序定義所有要繪製的元素及其參數
+            const elementsToDraw = [
+                // 1. 性別 (最底層，套用縮放比例)
+                { 
+                    type: 'gender', 
+                    img: state.images[state.gender], 
+                    size: BASE_SIZE * GENDER_SCALE_FACTOR, // 應用 110% 放大
+                    y: Y_CENTER 
+                },
+                // 2. 服裝 (中間層，應用 300% 放大，往下偏移 1/4 + 額外移動)
+                { 
+                    type: 'outfit', 
+                    img: state.images[state.outfit], 
+                    size: BASE_SIZE * OUTFIT_SCALE_FACTOR, // 應用 300% 放大
+                    y: Y_CENTER + VERTICAL_OFFSET + OUTFIT_MOVE_DOWN_PX // 額外增加偏移
+                },
+                // 3. 頭飾 (最上層，縮放 115%，往上偏移 1/4)
+                { 
+                    type: 'headwear', 
+                    img: state.images[state.headwear], 
+                    size: BASE_SIZE * HEADWEAR_SCALE_FACTOR, // 應用 115% 放大
+                    y: Y_CENTER - VERTICAL_OFFSET + HEADWEAR_MOVE_DOWN_PX // 增加 30px 向下移動
+                },
+            ];
+
+            elementsToDraw.forEach(item => {
+                const img = item.img;
+                if (img) {
+                    const drawWidth = item.size;
+                    const drawHeight = item.size * (img.height / img.width); 
+                    const offsetX = (CANVAS_WIDTH - drawWidth) / 2;
+                    // 繪製位置：Y 軸中心點 - 繪圖高度的一半
+                    ctx.drawImage(img, offsetX, item.y - drawHeight / 2, drawWidth, drawHeight);
+                }
+            });
+
+
+            // 4. 繪製文字區塊
+            const textX = CANVAS_WIDTH / 2;
+            const textYStart = CANVAS_HEIGHT - 250; // Baseline for wish text
+            const textWidth = CANVAS_WIDTH - PADDING * 2;
+            const lineHeight = 35;
+
+            // --- 角色屬性框 (直式書寫，每個字旋轉 90 度，移至右側) ---
+            
+            const ATTR_FONT_SIZE = 48; // **已放大**
+            const BOX_PADDING_X = 15; // 水平內邊距
+            const BOX_PADDING_Y = 10; // 垂直內邊距
+            
+            const attrText = state.attribute;
+            const chars = attrText.split(''); // 將文字拆分成單字
+
+            // 垂直書寫相關計算
+            ctx.font = `bold ${ATTR_FONT_SIZE}px ${FONT_FAMILY}`;
+            const charLineHeight = ATTR_FONT_SIZE * 1.2; // 行高
+            const textHeightInRotatedSpace = (chars.length - 1) * charLineHeight + ATTR_FONT_SIZE; // 實際文字高度
+            
+            // W_BOX (旋轉後的寬度，即卡片上的高度): 文字高度 + 垂直內邊距
+            const W_BOX = textHeightInRotatedSpace + 2 * BOX_PADDING_Y; 
+            // H_BOX (旋轉後的高度，即卡片上的寬度): 文字寬度 + 水平內邊距
+            const H_BOX = ATTR_FONT_SIZE + 2 * BOX_PADDING_X; 
+
+            // 定位旋轉中心點 (在卡片右側，大約垂直居中)
+            // 向中間移動 1 公分 (30 像素)
+            const ATTR_X = CANVAS_WIDTH - PADDING / 2 - H_BOX / 2 - 30; 
+            const ATTR_Y = CANVAS_HEIGHT / 2 - 260; // <-- 向上移動 4 公分 (120px)
+            
+
+            // 繪製旋轉的方框和文字
+            ctx.save();
+            ctx.translate(ATTR_X, ATTR_Y); // 移動到旋轉中心點
+            ctx.rotate(Math.PI / 2); // 旋轉 90 度 (使 X 軸垂直)
+            
+            // 繪製方框 (使用 fillRect 繪製無圓角矩形)
+            const BOX_DRAW_X = -W_BOX / 2;
+            const BOX_DRAW_Y = -H_BOX / 2;
+            
+            // 填充方框
+            ctx.fillStyle = '#F7F2E6'; // deity-light
+            ctx.fillRect(BOX_DRAW_X, BOX_DRAW_Y, W_BOX, H_BOX);
+
+            // 繪製屬性文字 (每個字元單獨處理)
+            ctx.fillStyle = '#9B7E50'; // deity-text
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle'; // 讓文字垂直居中
+            
+            const startXRotated = -textHeightInRotatedSpace / 2 + charLineHeight / 2;
+            let currentXRotated = startXRotated;
+
+            for (let i = 0; i < chars.length; i++) {
+                ctx.save();
+                
+                // 移到字元中心點 (在旋轉後的 X 軸上移動)
+                ctx.translate(currentXRotated, 0);
+
+                // 讓字元旋轉 -90 度 (順時針/向右 90 度)
+                ctx.rotate(-Math.PI / 2); 
+
+                // 繪製單個字元 (位於新的原點 (0, 0))
+                ctx.fillText(chars[i], 0, 0); 
+                
+                ctx.restore();
+                
+                // 移動繪圖點到下一個字元
+                currentXRotated += charLineHeight;
+            }
+
+            ctx.restore(); // 恢復 Canvas 狀態
+            // --- 角色屬性框結束 ---
+
+            // 願望留言 (步驟三)
+            ctx.fillStyle = '#7A643F'; // 願望文字顏色改為深咖啡色 (#7A643F)
+            ctx.textAlign = 'left';
+
+            const wishText = state.wish || '期待您的願望留言...';
+            
+            // 換行繪製願望 (居中)
+            ctx.font = `bold 22px ${FONT_FAMILY}`; // **字體加大**
+            const wishDrawX = PADDING;
+            
+            // --- 願望文字描邊設定 ---
+            ctx.strokeStyle = '#FFFFFF'; // 白色描邊
+            ctx.lineWidth = 2.5; // **描邊加粗**
+            drawWrappedText(`「${wishText}」`, wishDrawX, textYStart + lineHeight + 10, textWidth, 30, true);
+
+            // 底部簽名 (右對齊)
+            ctx.fillStyle = '#9B7E50'; // 文字顏色: #9B7E50
+            ctx.font = `bold 26px ${FONT_FAMILY}`; // **字體加大**
+            ctx.textAlign = 'right';
+            
+            let nicknameDisplay = '專屬守護神卡';
+            if (state.nickname) {
+                nicknameDisplay = `—— ${state.nickname} 的守護神`;
+            }
+            
+            // --- 簽名文字描邊設定 ---
+            ctx.strokeStyle = '#FFFFFF'; // 白色描邊
+            ctx.lineWidth = 3; // **描邊加粗**
+
+            const nicknameX = CANVAS_WIDTH - PADDING;
+            const nicknameY = CANVAS_HEIGHT - PADDING / 2;
+
+            ctx.strokeText(nicknameDisplay, nicknameX, nicknameY); // Draw stroke first
+            ctx.fillText(nicknameDisplay, nicknameX, nicknameY);   // Draw fill second
+
+            // 啟用下載按鈕
+            document.getElementById('download-btn').disabled = false;
+        }
+
+        /**
+         * 重新隨機選擇祝福 (Q6)。
+         */
+        function refreshBlessing() {
+            if (state.blessingToggle === 'yes') {
+                const randomIndex = Math.floor(Math.random() * blessingMessages.length);
+                state.blessingText = blessingMessages[randomIndex];
+                document.getElementById('event-text').textContent = state.blessingText;
+                document.getElementById('event-card').classList.remove('hidden');
+            } else {
+                state.blessingText = '';
+                document.getElementById('event-text').textContent = '';
+                document.getElementById('event-card').classList.add('hidden');
+            }
+        }
+
+
+        // --- 元素載入處理 (已更新，涵蓋所有新類別) ---
+
+        /**
+         * 載入所有元素圖片，完成後觸發繪圖。
+         */
+        function loadAllElements() {
+            const allElements = [
+                ...elementData.gender,
+                ...elementData.headwear,
+                ...elementData.outfit,
+                ...elementData.background,
+            ];
+            
+            let loadedCount = 0;
+            const totalCount = allElements.length;
+
+            if (totalCount === 0) {
+                state.allElementsLoaded = true;
+                drawDeityCard();
+                return;
+            }
+
+            document.getElementById('loading-overlay').classList.remove('hidden');
+
+            allElements.forEach(item => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous'; 
+                img.onload = () => {
+                    state.images[item.id] = img;
+                    loadedCount++;
+                    if (loadedCount === totalCount) {
+                        state.allElementsLoaded = true;
+                        document.getElementById('loading-overlay').classList.add('hidden');
+                        refreshBlessing(); // 初始載入時也隨機抽一個祝福
+                        drawDeityCard();
+                    }
+                };
+                img.onerror = () => {
+                    // 由於圖片已替換為 CORS 友善的佔位符，此錯誤應該不會發生
+                    console.error(`Failed to load image: ${item.imageUrl}. 檢查連結。`);
+                    loadedCount++;
+                    if (loadedCount === totalCount) {
+                        state.allElementsLoaded = true;
+                        document.getElementById('loading-overlay').classList.add('hidden');
+                        refreshBlessing();
+                        drawDeityCard();
+                    }
+                };
+                img.src = item.imageUrl;
+            });
+        }
+
+        // --- UI 渲染與互動處理 (已更新) ---
+
+        /**
+         * 渲染選擇按鈕。
+         * @param {string} category 類別名稱 (gender, headwear, outfit, background)
+         * @param {string} title 區塊標題
+         * @param {Array<Object>} items 元素列表
+         */
+        function renderOptions(category, title, items) {
+            const container = document.createElement('div');
+            container.innerHTML = `<h3 class="text-lg font-medium mb-2 text-gray-700">${title}</h3>`;
+            const innerDiv = document.createElement('div');
+            innerDiv.className = 'flex flex-wrap gap-2';
+
+            items.forEach(item => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.id = `btn-${item.id}`;
+                button.className = `option-button px-4 py-2 text-sm rounded-full border-2 border-gray-200 text-gray-700 bg-white hover:bg-deity-light hover:border-deity-accent`;
+                button.textContent = item.name;
+                
+                // 設置初始選擇狀態
+                if (state[category] === item.id) {
+                    button.classList.add('selected');
+                }
+
+                button.onclick = () => {
+                    // 更新狀態
+                    state[category] = item.id;
+                    // 更新 UI 選擇狀態
+                    document.querySelectorAll(`#element-selection button[data-category="${category}"]`).forEach(btn => {
+                        btn.classList.remove('selected');
+                        btn.classList.remove('border-deity-accent');
+                    });
+                    button.classList.add('selected');
+                    button.classList.add('border-deity-accent');
+                    // 重新繪製卡片
+                    drawDeityCard();
+                };
+                button.setAttribute('data-category', category);
+                innerDiv.appendChild(button);
+            });
+            container.appendChild(innerDiv);
+            document.getElementById('element-selection').appendChild(container);
+        }
+
+        /**
+         * 渲染屬性選擇按鈕。
+         */
+        function renderAttributes() {
+            const container = document.getElementById('attribute-selection');
+            attributes.forEach(attr => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                // 調整了 hover 顏色以匹配新主題
+                button.className = `option-button px-4 py-3 text-sm rounded-xl border-2 border-gray-200 text-gray-700 bg-white hover:bg-deity-light hover:border-deity-accent font-semibold`;
+                button.textContent = attr;
+
+                // 設置初始選擇狀態
+                if (state.attribute === attr) {
+                    button.classList.add('selected');
+                }
+
+                button.onclick = () => {
+                    // 更新狀態
+                    state.attribute = attr;
+                    // 更新 UI 選擇狀態
+                    document.querySelectorAll('#attribute-selection button').forEach(btn => {
+                        btn.classList.remove('selected');
+                    });
+                    button.classList.add('selected');
+                    // 重新繪製卡片
+                    drawDeityCard();
+                };
+                container.appendChild(button);
+            });
+        }
+
+
+        /**
+         * 初始化所有事件監聽器。
+         */
+        function setupEventListeners() {
+            // 暱稱輸入監聽 (Q7)
+            const nicknameInput = document.getElementById('nickname-input');
+            const nicknameDisplay = document.getElementById('nickname-display');
+            nicknameInput.addEventListener('input', (e) => {
+                // 限制字數
+                if (e.target.value.length > 10) {
+                    e.target.value = e.target.value.substring(0, 10);
+                }
+                state.nickname = e.target.value;
+                nicknameDisplay.textContent = state.nickname ? `神卡名稱: ${state.nickname}` : '';
+                drawDeityCard();
+            });
+
+
+            // 願望輸入監聽 (Q3)
+            const wishInput = document.getElementById('wish-input');
+            const charCount = document.getElementById('char-count');
+            wishInput.addEventListener('input', (e) => {
+                // 限制字數 (已增加至 100 字，以容納昇華後的祈禱文)
+                if (e.target.value.length > 100) {
+                    e.target.value = e.target.value.substring(0, 100);
+                }
+                state.wish = e.target.value;
+                charCount.textContent = state.wish.length;
+                drawDeityCard();
+            });
+
+            // Gemini API 許願詞昇華按鈕監聽
+            REFINE_WISH_BTN.addEventListener('click', refineWish);
+
+
+            // 隨機祝福開關監聽 (Q6)
+            document.querySelectorAll('input[name="blessing"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    state.blessingToggle = e.target.value;
+                    refreshBlessing(); // 切換時重新抽或隱藏
+                });
+            });
+
+            // 守護神牆意願監聽 (Q8)
+            document.querySelectorAll('input[name="consent"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    state.consent = e.target.value;
+                    // 這邊不需要重繪卡片，因為不影響視覺輸出
+                });
+            });
+
+
+            // 下載按鈕監聽
+            document.getElementById('download-btn').addEventListener('click', () => {
+                // 確保 Canvas 內容是最新的
+                drawDeityCard();
+
+                // 獲取 Canvas 數據 URL
+                const dataURL = canvas.toDataURL('image/png');
+                
+                // 創建一個臨時的下載連結
+                const link = document.createElement('a');
+                link.href = dataURL;
+                link.download = `守護神卡-${state.nickname || state.attribute}.png`;
+                
+                // 觸發下載
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // 可以在這裡呼叫 Firebase 儲存數據 (如果已啟用)
+                // if (firebaseConfig) {
+                //     saveCardToFirestore({
+                //         ...state,
+                //         blessingText: state.blessingText,
+                //         imageUrl: dataURL, // 儲存 Base64 數據以便在牆上展示
+                //         // ...其他數據
+                //     });
+                // }
+            });
+        }
+
+        // --- 應用程式初始化 ---
+        window.onload = function () {
+            // 1. 渲染所有選項 (順序依照表單)
+            renderOptions('gender', '性別：', elementData.gender);
+            renderOptions('headwear', '為你的神選擇頭飾 👑：', elementData.headwear);
+            renderOptions('outfit', '祂的服裝風格 👘：', elementData.outfit);
+            renderOptions('background', '祂的背景風格🏞️：', elementData.background);
+            
+            // 2. 渲染屬性
+            renderAttributes();
+            
+            // 3. 設置事件監聽器
+            setupEventListeners();
+
+            // 4. 載入所有圖片元素並開始繪圖
+            loadAllElements();
+        };
+
+    </script>
+</body>
+</html>
+
