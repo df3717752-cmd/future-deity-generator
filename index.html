@@ -31,7 +31,7 @@
         /* 確保 Canvas 能夠正確繪圖 */
         #deity-canvas {
             border: 2px solid #DDB466; /* 框線顏色: #DDB466 */
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
         /* 選擇按鈕風格 */
         .option-button {
@@ -51,6 +51,12 @@
         #wish-input {
             resize: vertical;
         }
+        /* 針對桌機排版，預覽區固定在右側 */
+        @media (min-width: 1024px) {
+            .lg\:sticky {
+                position: sticky;
+            }
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -63,34 +69,25 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- 左側：卡片預覽區 -->
-            <div class="order-1 lg:order-2 bg-white p-6 rounded-xl shadow-lg flex flex-col items-center h-fit lg:sticky lg:top-8">
-                <h2 class="text-2xl font-semibold mb-4 text-deity-text">您的守護神預覽</h2>
-                <!-- Canvas 繪圖區域，設定為 4:3 比例 --><canvas id="deity-canvas" width="300" height="400" class="w-full max-w-sm rounded-lg mb-4"></canvas>
+            
+            <!-- 右側：選擇區塊 (Order 1 on desktop, Order 2 on mobile) -->
+            <div class="order-2 lg:order-1 space-y-8">
                 
-                <div id="event-card" class="bg-deity-light border-l-4 border-deity-accent p-4 rounded-lg w-full max-w-sm hidden">
-                    <p class="text-deity-dark font-bold mb-1">✨ 隨機祝福卡</p>
-                    <p id="event-text" class="text-deity-dark text-sm"></p>
-                </div>
-
-                <button id="download-btn" class="mt-6 w-full max-w-sm bg-deity-accent hover:bg-deity-dark text-white font-bold py-3 rounded-xl shadow-md transition duration-150 ease-in-out disabled:opacity-50" disabled>
-                    下載您的專屬守護神卡 (PNG)
-                </button>
-                <p id="nickname-display" class="mt-2 text-sm text-deity-text font-semibold"></p>
-            </div>
-
-            <!-- 右側：選擇區塊 --><div class="order-2 lg:order-1 space-y-8">
-                <!-- 步驟一：拼貼設計 --><div class="bg-white p-6 rounded-xl shadow-lg">
+                <!-- 步驟一：拼貼設計 -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
                     <h2 class="text-2xl font-semibold mb-4 text-deity-text">步驟一：拼貼設計</h2>
                     <div id="element-selection" class="space-y-4">
-                        <!-- 元素選擇區塊將由 JS 動態生成 --></div>
+                        <!-- 元素選擇區塊將由 JS 動態生成 -->
+                    </div>
                 </div>
 
-                <!-- 步驟二：賦予力量 --><div class="bg-white p-6 rounded-xl shadow-lg">
+                <!-- 步驟二：賦予力量 -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
                     <h2 class="text-2xl font-semibold mb-4 text-deity-text">步驟二：賦予力量屬性</h2>
                     <p class="text-sm text-gray-700 mb-3">祂的力量屬性是？</p>
                     <div id="attribute-selection" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        <!-- 屬性按鈕將由 JS 動態生成 --></div>
+                        <!-- 屬性按鈕將由 JS 動態生成 -->
+                    </div>
                     
                     <h3 class="text-lg font-medium mt-6 mb-3 text-gray-700">想加入一點隨機祝福嗎？</h3>
                     <div id="blessing-toggle" class="flex flex-wrap gap-4">
@@ -105,7 +102,8 @@
                     </div>
                 </div>
 
-                <!-- 步驟三/四：祈願與顯靈 --><div class="bg-white p-6 rounded-xl shadow-lg">
+                <!-- 步驟三/四：祈願與顯靈 -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
                     <h2 class="text-2xl font-semibold mb-4 text-deity-text">步驟三/四：祈願與顯靈</h2>
                     
                     <h3 class="text-lg font-medium mb-3 text-gray-700">Q7. 你希望神卡上顯示的名字／暱稱？</h3>
@@ -114,10 +112,7 @@
                     <h3 class="text-lg font-medium mt-6 mb-3 text-gray-700">你希望這位未來神保佑你實現什麼願望？</h3>
                     <div class="flex flex-col space-y-2">
                          <textarea id="wish-input" rows="3" maxlength="100" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-deity-accent focus:border-deity-accent" placeholder="你希望這位仙人保佑你實現什麼願望？ (最多100字)"></textarea>
-                         <div class="flex justify-between items-center">
-                            <button id="refine-wish-btn" class="flex items-center px-4 py-2 bg-deity-text text-white text-sm rounded-lg hover:bg-deity-dark transition disabled:opacity-50">
-                                <span id="refine-wish-text">✨ 許願詞昇華 (Gemini)</span>
-                            </button>
+                         <div class="flex justify-end items-center">
                             <p class="text-right text-sm text-gray-500 mt-1"><span id="char-count">0</span> / 100 字</p>
                         </div>
                     </div>
@@ -134,6 +129,22 @@
                         </label>
                     </div>
                 </div>
+            </div>
+
+            <!-- 左側：卡片預覽區 (Order 2 on mobile, Order 2 on desktop) -->
+            <div class="order-1 lg:order-2 bg-white p-6 rounded-xl shadow-lg flex flex-col items-center h-fit lg:sticky lg:top-8">
+                <h2 class="text-2xl font-semibold mb-4 text-deity-text">您的守護神預覽</h2>
+                <!-- Canvas 繪圖區域，設定為 4:3 比例 --><canvas id="deity-canvas" width="300" height="400" class="w-full max-w-sm rounded-lg mb-4"></canvas>
+                
+                <div id="event-card" class="bg-deity-light border-l-4 border-deity-accent p-4 rounded-lg w-full max-w-sm hidden">
+                    <p class="text-deity-dark font-bold mb-1">✨ 隨機祝福卡</p>
+                    <p id="event-text" class="text-deity-dark text-sm"></p>
+                </div>
+
+                <button id="download-btn" class="mt-6 w-full max-w-sm bg-deity-accent hover:bg-deity-dark text-white font-bold py-3 rounded-xl shadow-md transition duration-150 ease-in-out disabled:opacity-50" disabled>
+                    下載您的專屬守護神卡 (PNG)
+                </button>
+                <p id="nickname-display" class="mt-2 text-sm text-deity-text font-semibold"></p>
             </div>
         </div>
 
@@ -294,143 +305,12 @@
             allElementsLoaded: false,
         };
 
-        // --- Firebase 相關配置 (用於未來實現社群牆) ---
-        // (保持不變)
-
-
-        // --- Gemini API 整合 ---
-        const API_MODEL = "gemini-2.5-flash-preview-09-2025";
-        const API_KEY = "AIzaSyBetxpyWKJKNsFABI0hRFA7QAPimixcuSI"; // 密鑰已填入！
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent?key=${API_KEY}`;
-        const REFINE_WISH_BTN = document.getElementById('refine-wish-btn');
-        const REFINE_WISH_TEXT = document.getElementById('refine-wish-text');
+        // 移除相關變數
         const WISH_INPUT = document.getElementById('wish-input');
 
 
-        /**
-         * 執行帶有指數退避的 fetch 請求
-         */
-        async function exponentialBackoffFetch(url, options, maxRetries = 5, delay = 1000) {
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (response.status !== 429 && response.ok) {
-                        return response;
-                    } else if (response.status === 429 && i < maxRetries - 1) {
-                        // Too Many Requests, retry
-                        await new Promise(resolve => setTimeout(resolve, delay * (2 ** i) + Math.random() * 1000));
-                        continue;
-                    } else {
-                        throw new Error(`API request failed with status ${response.status}`);
-                    }
-                } catch (error) {
-                    if (i < maxRetries - 1) {
-                        await new Promise(resolve => setTimeout(resolve, delay * (2 ** i) + Math.random() * 1000));
-                        continue;
-                    } else {
-                        throw error;
-                    }
-                }
-            }
-        }
+        // 此處移除 exponentialBackoffFetch, callGeminiApi, refineWish 函數
 
-        /**
-         * 呼叫 Gemini API 進行文本生成
-         */
-        async function callGeminiApi(userQuery, systemPrompt) {
-            if (!API_KEY) {
-                // 應急處理，因為密鑰已經填入，但保留此防呆
-                console.error("錯誤：請在程式碼中填入您的 Gemini API 密鑰！");
-                return "API 連線失敗：密鑰為空。";
-            }
-            
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: {
-                    parts: [{ text: systemPrompt }]
-                },
-                config: {
-                    // 將輸出字數限制在 80 字以內，符合卡片版面需求
-                    maxOutputTokens: 80 
-                }
-            };
-
-            const options = {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            };
-
-            try {
-                const response = await exponentialBackoffFetch(API_URL, options);
-                const result = await response.json();
-                
-                const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                if (!generatedText) {
-                     // 如果 API 返回無內容，拋出錯誤
-                    console.error("Gemini API returned no text:", result);
-                    return "神諭能量不足，請重新嘗試！";
-                }
-
-                // 清理輸出文本，移除不必要的引號或換行
-                return generatedText.trim().replace(/^['"\s]+|['"\s]+$/g, '');
-
-            } catch (error) {
-                console.error("Error calling Gemini API:", error);
-                return "宇宙連線中斷，請稍後再試。";
-            }
-        }
-
-        /**
-         * ✨ 許願詞昇華：使用 Gemini API 強化用戶的願望。
-         */
-        async function refineWish() {
-            const currentWish = state.wish.trim();
-            const selectedAttribute = state.attribute;
-
-            if (currentWish.length < 5) {
-                // 如果願望太短，給予提示
-                WISH_INPUT.placeholder = "請輸入至少 5 個字再進行昇華！";
-                WISH_INPUT.focus();
-                return;
-            }
-
-            // 設置按鈕為載入狀態
-            REFINE_WISH_BTN.disabled = true;
-            REFINE_WISH_TEXT.textContent = '神諭生成中...';
-
-            const systemPrompt = `你是一位掌管未來、神聖且充滿詩意的神諭師。你的任務是根據信徒簡短的願望，將其改寫成一段充滿力量感、優雅或史詩風格的「祈禱文」。這段祈禱文必須簡潔，長度不超過 30 個中文字，且必須與信徒選擇的「守護神」屬性（例如：${selectedAttribute}）相呼應。只輸出昇華後的祈禱文，不需要任何額外的標點符號或稱謂。`;
-
-            const userQuery = `這是信徒的願望，請昇華："${currentWish}"`;
-
-            const refinedWish = await callGeminiApi(userQuery, systemPrompt);
-
-            // 更新 UI 狀態
-            REFINE_WISH_BTN.disabled = false;
-            REFINE_WISH_TEXT.textContent = '✨ 許願詞昇華 (Gemini)';
-            
-            // 如果連線失敗，會顯示錯誤訊息，不影響原願望
-            if (refinedWish.includes("API 連線失敗") || refinedWish.includes("宇宙連線中斷")) {
-                // 這裡我們不使用 alert，而是將錯誤訊息顯示在按鈕上
-                 REFINE_WISH_TEXT.textContent = refinedWish.substring(0, 10); // 顯示錯誤提示
-                 setTimeout(() => {
-                    REFINE_WISH_TEXT.textContent = '✨ 許願詞昇華 (Gemini)';
-                 }, 3000);
-                 return;
-            }
-
-            // 將昇華後的願望更新到輸入框和狀態
-            state.wish = refinedWish.substring(0, 100); // 確保不超過最大長度
-            WISH_INPUT.value = state.wish;
-            WISH_INPUT.dispatchEvent(new Event('input')); // 觸發繪圖和字數計算
-
-            // 視覺回饋
-            WISH_INPUT.classList.add('border-deity-accent', 'border-4');
-            setTimeout(() => {
-                WISH_INPUT.classList.remove('border-deity-accent', 'border-4');
-            }, 1000);
-        }
 
         // --- 核心繪圖函數 ---
 
@@ -805,7 +685,7 @@
                 button.className = `option-button px-4 py-3 text-sm rounded-xl border-2 border-gray-200 text-gray-700 bg-white hover:bg-deity-light hover:border-deity-accent font-semibold`;
                 button.textContent = attr;
 
-                // 設置初始選擇狀態
+                // 設定初始選擇狀態
                 if (state.attribute === attr) {
                     button.classList.add('selected');
                 }
@@ -857,9 +737,7 @@
                 drawDeityCard();
             });
 
-            // Gemini API 許願詞昇華按鈕監聽
-            REFINE_WISH_BTN.addEventListener('click', refineWish);
-
+            // 許願詞昇華按鈕監聽已移除
 
             // 隨機祝福開關監聽 (Q6)
             document.querySelectorAll('input[name="blessing"]').forEach(radio => {
